@@ -39,3 +39,44 @@ def adjust_probability(model_prob):
     # キャリブレーション誤差の半分を差し引く
     adjusted_prob = max(0.01, min(0.99, model_prob - (calibration_error / 2)))
     return adjusted_prob
+
+def adaptive_kelly(model_prob, odds, bankroll, prediction_history=None):
+    """
+    適応型ケリー基準を計算する関数
+    
+    Args:
+        model_prob: モデルの予測確率
+        odds: アメリカンオッズ
+        bankroll: 総資金額
+        prediction_history: 過去の予測結果のリスト（オプション）
+        
+    Returns:
+        bet_amount: 推奨賭け金額
+    """
+    # 予測確率を調整
+    adjusted_prob = adjust_probability(model_prob)
+    
+    # オッズをデシマル形式に変換
+    if odds > 0:
+        decimal_odds = odds / 100 + 1
+    else:
+        decimal_odds = 100 / abs(odds) + 1
+    
+    # ケリー式で計算
+    edge = adjusted_prob * decimal_odds - 1
+    if edge <= 0:
+        return 0
+    
+    kelly_fraction = adjusted_prob - (1 - adjusted_prob) / (decimal_odds - 1)
+    kelly_fraction = max(0, min(kelly_fraction, 0.25))  # 25%を上限に
+    
+    # 過去の予測結果に基づく調整（存在する場合）
+    if prediction_history and len(prediction_history) > 0:
+        # 過去の結果に基づいて信頼係数を計算（簡易版）
+        confidence_factor = 0.5  # デフォルト値
+        kelly_fraction *= confidence_factor
+    
+    # 賭け金額を計算
+    bet_amount = bankroll * kelly_fraction
+    
+    return bet_amount

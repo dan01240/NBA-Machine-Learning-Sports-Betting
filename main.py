@@ -99,6 +99,15 @@ def main():
             print(Style.RESET_ALL)
             odds = None
         else:
+            # この部分はbet365から取得したオッズデータを表示しています。
+　　　　　　　# Dallas Mavericks (375) @ Indiana Pacers (-500)
+　　　　　　　# Houston Rockets (-135) @ Orlando Magic (115)
+　　　　　　　# Detroit Pistons (-185) @ Miami Heat (155)
+　　　　　　　# New Orleans Pelicans (575) @ Minnesota Timberwolves (-850)
+　　　　　　　# New York Knicks (-390) @ San Antonio Spurs (310)
+　　　　　　　# Philadelphia 76ers (475) @ Oklahoma City Thunder (-650)
+　　　　　　　# Washington Wizards (155) @ Utah Jazz (-185)
+　　　　　　　# Denver Nuggets (-130) @ Los Angeles Lakers (110)            
             print(f"------------------{args.odds} odds data------------------")
             for g in odds.keys():
                 home_team, away_team = g.split(":")
@@ -116,6 +125,26 @@ def main():
         print("-------------------------------------------------------")
     if args.xgb:
         print("---------------XGBoost Model Predictions---------------")
+        # 勝敗予測:  
+        # Indiana Pacers (61.20%): ペイサーズが61.20%の確率で勝利すると予測
+        # Houston Rockets (51.60%): ロケッツが51.60%の確率で勝利すると予測      
+            # Indiana Pacers (61.20000076293945%) vs Dallas Mavericks:
+        
+        # オーバー/アンダー予測:
+        # UNDER 234.5 (60.60%): 合計得点が234.5点未満になる確率が60.60%
+        # OVER 209.5 (88.20%): 合計得点が209.5点を超える確率が88.20%
+            # UNDER 234.5 (60.599998474121094%)
+        
+        # Orlando Magic vs Houston Rockets (51.599998474121094%): OVER 209.5 (88.19999694824219%)
+        # Miami Heat (51.79999923706055%) vs Detroit Pistons: UNDER 218.5 (51.099998474121094%)
+        # Minnesota Timberwolves (80.5999984741211%) vs New Orleans Pelicans: OVER 228.5 (61.400001525878906%)
+        # San Antonio Spurs (51.20000076293945%) vs New York Knicks: UNDER 227.5 (78.80000305175781%)
+        # Oklahoma City Thunder (81.19999694824219%) vs Philadelphia 76ers: UNDER 227 (79.80000305175781%)
+        # Utah Jazz vs Washington Wizards (52.70000076293945%): OVER 234 (74.30000305175781%)
+        # Los Angeles Lakers (54.400001525878906%) vs Denver Nuggets: UNDER 234 (73.4000015258789%)
+        # Sacramento Kings vs Cleveland Cavaliers (58.400001525878906%): OVER 236 (66.80000305175781%)
+        # Phoenix Suns (66.5999984741211%) vs Chicago Bulls: OVER 234.5 (85.9000015258789%)
+        # Portland Trail Blazers vs Memphis Grizzlies (61.900001525878906%): UNDER 235.5 (55.099998474121094%)        
         XGBoost_Runner.xgb_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team_odds, args.kc)
         print("-------------------------------------------------------")
     if args.A:

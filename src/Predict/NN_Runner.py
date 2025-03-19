@@ -5,6 +5,7 @@ from colorama import Fore, Style, init, deinit
 from keras.models import load_model
 from src.Utils import Expected_Value
 from src.Utils import Kelly_Criterion as kc
+from src.Utils.Adaptive_Calibration import adaptive_kelly
 
 init()
 
@@ -67,7 +68,27 @@ def nn_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team_
                       Fore.BLUE + 'OVER ' + Style.RESET_ALL + str(todays_games_uo[count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
         count += 1
     if kelly_criterion:
-        print("------------Expected Value & Kelly Criterion-----------")
+      # 過去の予測結果 (テスト用に空リストから開始)
+      if not hasattr(nn_runner, 'prediction_history'):
+          nn_runner.prediction_history = []
+      
+      bankroll_amount = 10000  # 例: 1万ドルの資金
+      bet_size_home = adaptive_kelly(
+          ml_predictions_array[count][0][1], 
+          int(home_team_odds[count]),
+          bankroll_amount,
+          nn_runner.prediction_history
+      )
+      
+      bet_size_away = adaptive_kelly(
+          ml_predictions_array[count][0][0], 
+          int(away_team_odds[count]),
+          bankroll_amount,
+          nn_runner.prediction_history
+      )
+      
+      print(f"{home_team} 推奨賭け金額: ${bet_size_home:.2f}")
+      print(f"{away_team} 推奨賭け金額: ${bet_size_away:.2f}")
     else:
         print("---------------------Expected Value--------------------")
     count = 0

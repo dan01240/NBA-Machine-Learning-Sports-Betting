@@ -91,6 +91,42 @@ def xgb_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team
 
         print(home_team + ' EV: ' + expected_value_colors['home_color'] + str(ev_home) + Style.RESET_ALL + (bankroll_fraction_home if kelly_criterion else ''))
         print(away_team + ' EV: ' + expected_value_colors['away_color'] + str(ev_away) + Style.RESET_ALL + (bankroll_fraction_away if kelly_criterion else ''))
+        # 期待値(EV):
+        # 予測確率とオッズから計算される理論的な収益
+        # 正の値はプラスの期待値（長期的に利益が出る）を示す
+        # 例：Dallas Mavericks EV: 84.40 → $100賭けた場合の期待値は$84.40
+        
+        # ケリー基準(Kelly Criterion):
+        # 最適な賭け金額の割合を計算
+        # Fraction of Bankroll: 総資金のうち何%を賭けるべきかを示す
+        # 例：Dallas Mavericks ... Fraction of Bankroll: 22.51% → 資金の22.51%を賭けるのが最適
+        # Dallas Mavericks (EV: 84.40) - 最も高いEV、資金の22.51%を賭けることが推奨
+        # San Antonio Spurs (EV: 109.93) - 非常に高いEV、資金の35.46%を賭けることが推奨
+        # Washington Wizards (EV: 34.46) - 良好なEV、資金の22.23%を賭けることが推奨
+        # Miami Heat (EV: 32.06) - 良好なEV、資金の20.68%を賭けることが推奨
+        # New Orleans Pelicans (EV: 30.73) - 良好なEV、資金の5.35%を賭けることが推奨
+        # Indiana Pacers EV: -29.579999923706055 Fraction of Bankroll: 0%
+        # Dallas Mavericks EV: 74.9000015258789 Fraction of Bankroll: 19.97%
+        # Orlando Magic EV: -0.23000000417232513 Fraction of Bankroll: 0%
+        # Houston Rockets EV: -13.670000076293945 Fraction of Bankroll: 0%
+        # Miami Heat EV: 26.959999084472656 Fraction of Bankroll: 17.39%
+        # Detroit Pistons EV: -28.809999465942383 Fraction of Bankroll: 0%
+        # Minnesota Timberwolves EV: -14.069999694824219 Fraction of Bankroll: 0%
+        # New Orleans Pelicans EV: 17.229999542236328 Fraction of Bankroll: 3.0%
+        # San Antonio Spurs EV: 101.7300033569336 Fraction of Bankroll: 32.82%
+        # New York Knicks EV: -41.20000076293945 Fraction of Bankroll: 0%
+        # Oklahoma City Thunder EV: -10.619999885559082 Fraction of Bankroll: 0%
+        # Philadelphia 76ers EV: -3.490000009536743 Fraction of Bankroll: 0%
+        # Utah Jazz EV: -30.260000228881836 Fraction of Bankroll: 0%
+        # Washington Wizards EV: 29.360000610351562 Fraction of Bankroll: 18.94%
+        # Los Angeles Lakers EV: 10.050000190734863 Fraction of Bankroll: 9.14%
+        # Denver Nuggets EV: -22.8700008392334 Fraction of Bankroll: 0%
+        # Sacramento Kings EV: 9.010000228881836 Fraction of Bankroll: 5.15%
+        # Cleveland Cavaliers EV: -16.799999237060547 Fraction of Bankroll: 0%
+        # Phoenix Suns EV: -9.170000076293945 Fraction of Bankroll: 0%
+        # Chicago Bulls EV: -7.409999847412109 Fraction of Bankroll: 0%
+        # Portland Trail Blazers EV: -8.020000457763672 Fraction of Bankroll: 0%
+        # Memphis Grizzlies EV: -8.4399995803833 Fraction of Bankroll: 0%
         count += 1
 
     deinit()

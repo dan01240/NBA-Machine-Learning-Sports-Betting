@@ -24,7 +24,7 @@ def load_data():
 def load_model():
     # XGBoostのモデルをロード
     model = xgb.Booster()
-    model.load_model('Models/XGBoost_Models/XGBoost_68.7%_ML-4.json')
+    model.load_model('Models/XGBoost_CAL3.98%_ACC66.5%_ML-1742434228.json')
     return model
 
 # キャリブレーションプロットの作成

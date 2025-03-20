@@ -12,7 +12,7 @@ from src.Utils import Kelly_Criterion as kc
 # from src.Utils.tools import get_json_data, to_data_frame, get_todays_games_json, create_todays_games
 init()
 xgb_ml = xgb.Booster()
-xgb_ml.load_model('Models/XGBoost_Models/XGBoost_75.7%_ML-4.json')
+xgb_ml.load_model('Models/CAL/XGBoost_CAL1.31%_ACC61.7%_ML-1742435642.json')
 xgb_uo = xgb.Booster()
 xgb_uo.load_model('Models/XGBoost_Models/XGBoost_53.7%_UO-9.json')
 
@@ -22,7 +22,9 @@ def xgb_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team
 
     for row in data:
         ml_predictions_array.append(xgb_ml.predict(xgb.DMatrix(np.array([row]))))
-
+    # 予測確率の形状を出力
+    print("ML Predictions Shape:", [pred.shape for pred in ml_predictions_array])
+    print("First Prediction:", ml_predictions_array[0])
     frame_uo = copy.deepcopy(frame_ml)
     frame_uo['OU'] = np.asarray(todays_games_uo)
     data = frame_uo.values

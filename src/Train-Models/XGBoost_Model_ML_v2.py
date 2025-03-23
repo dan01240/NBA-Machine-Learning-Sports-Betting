@@ -2,8 +2,7 @@ import sqlite3
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-from sklearn.metrics import accuracy_score
-from sklearn.calibration import calibration_curve
+from sklearn.metrics import accuracy_score, calibration_curve
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 import time

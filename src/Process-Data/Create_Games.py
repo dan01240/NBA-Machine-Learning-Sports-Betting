@@ -28,7 +28,22 @@ processed_games = 0
 skipped_games = 0
 
 # 2019年以降のシーズンのみを処理対象とする
-target_seasons = ['2019-20', '2020-21', '2021-22', '2022-23', '2023-24', '2024-25']
+# 2012年から現在までの全シーズンのリスト
+target_seasons = [
+    '2012-13',  # 最初のシーズン
+    '2013-14', 
+    '2014-15',
+    '2015-16',
+    '2016-17',
+    '2017-18',
+    '2018-19',
+    '2019-20',  # COVID-19で中断されたシーズン
+    '2020-21',  # バブルシーズン
+    '2021-22',  # ほぼ通常運営に戻ったシーズン
+    '2022-23',  # 通常シーズン
+    '2023-24',  # 現在のシーズン
+    '2024-25'   # 次のシーズン（まだデータがない可能性あり）
+]
 print(f"対象シーズン: {', '.join(target_seasons)}")
 
 for key, value in config['create-games'].items():
@@ -157,7 +172,7 @@ for field in frame.columns.values:
 
 # データベースに保存（別名で保存）
 con = sqlite3.connect("../../Data/dataset.sqlite")
-frame.to_sql("dataset_2019-25", con, if_exists="replace")
+frame.to_sql("dataset_2012-25_test", con, if_exists="replace")
 con.close()
 
 print("2019-2025年のデータセット（dataset_2019-25）の作成が完了しました！")

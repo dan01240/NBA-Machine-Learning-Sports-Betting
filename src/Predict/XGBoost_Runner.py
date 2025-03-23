@@ -1,30 +1,44 @@
 import copy
-
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-from colorama import Fore, Style, init, deinit
+from colorama import Fore, Style, Back, init, deinit
+import csv
+import os
+from datetime import datetime
 from src.Utils import Expected_Value
 from src.Utils import Kelly_Criterion as kc
 
-
-# from src.Utils.Dictionaries import team_index_current
-# from src.Utils.tools import get_json_data, to_data_frame, get_todays_games_json, create_todays_games
+# Initialize colorama
 init()
+
+# Load XGBoost models
 xgb_ml = xgb.Booster()
-xgb_ml.load_model('Models/CAL/XGBoost_CAL1.31%_ACC61.7%_ML-1742435642.json')
+# xgb_ml.load_model('Models/ACC/A_XGBoost_CAL6.84%_ACC72.3%_ML-v573.json')
+xgb_ml.load_model('Models/GOOD_2012v2_XGBoost_CAL1.83%_HOLDOUT-CAL2.75%_ACC64.3%_HOLDOUT-ACC64.1%_ML-v28.json')
 xgb_uo = xgb.Booster()
 xgb_uo.load_model('Models/XGBoost_Models/XGBoost_53.7%_UO-9.json')
 
-
 def xgb_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team_odds, kelly_criterion):
+    """
+    XGBoostモデルを使用して試合の予測を行い、結果を表示する関数
+    条件を満たすベット（勝率50%以上かつEVがプラス）を強調表示
+    
+    Args:
+        data: 予測に使用するデータ
+        todays_games_uo: 試合ごとのオーバー/アンダーライン
+        frame_ml: モデル用のデータフレーム
+        games: 試合情報のリスト
+        home_team_odds: ホームチームのオッズリスト
+        away_team_odds: アウェイチームのオッズリスト
+        kelly_criterion: ケリー基準を使用するかどうかのフラグ
+    """
     ml_predictions_array = []
-
+    
+    # 勝敗予測の実行
     for row in data:
         ml_predictions_array.append(xgb_ml.predict(xgb.DMatrix(np.array([row]))))
-    # 予測確率の形状を出力
-    print("ML Predictions Shape:", [pred.shape for pred in ml_predictions_array])
-    print("First Prediction:", ml_predictions_array[0])
+    
     frame_uo = copy.deepcopy(frame_ml)
     frame_uo['OU'] = np.asarray(todays_games_uo)
     data = frame_uo.values
@@ -35,100 +49,255 @@ def xgb_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team
     for row in data:
         ou_predictions_array.append(xgb_uo.predict(xgb.DMatrix(np.array([row]))))
 
+    # 予測結果のリストを初期化
+    predictions_list = []
+    
     count = 0
     for game in games:
         home_team = game[0]
         away_team = game[1]
+        
+        # 勝者予測
         winner = int(np.argmax(ml_predictions_array[count]))
         under_over = int(np.argmax(ou_predictions_array[count]))
+        
+        # 予測確率の取得
         winner_confidence = ml_predictions_array[count]
         un_confidence = ou_predictions_array[count]
+        
+        # 期待値とケリー基準を計算
+        ev_home = ev_away = 0
+        kelly_home = kelly_away = 0
+        if home_team_odds[count] and away_team_odds[count]:
+            ev_home = float(Expected_Value.expected_value(ml_predictions_array[count][0][1], int(home_team_odds[count])))
+            ev_away = float(Expected_Value.expected_value(ml_predictions_array[count][0][0], int(away_team_odds[count])))
+            kelly_home = kc.calculate_kelly_criterion(home_team_odds[count], ml_predictions_array[count][0][1])
+            kelly_away = kc.calculate_kelly_criterion(away_team_odds[count], ml_predictions_array[count][0][0])
+        
+        # 各チームについて勝率と期待値の条件を確認
+        home_win_prob = winner_confidence[0][1] * 100 if len(winner_confidence[0]) > 1 else (1 - winner_confidence[0][0]) * 100
+        away_win_prob = winner_confidence[0][0] * 100 if len(winner_confidence[0]) > 1 else winner_confidence[0][0] * 100
+        
+        home_meets_criteria = home_win_prob > 50 and ev_home > 0
+        away_meets_criteria = away_win_prob > 50 and ev_away > 0
+        
+        # 予測データを辞書に保存
+        predictions_list.append({
+            'home_team': home_team,
+            'away_team': away_team,
+            'winner': 'home' if winner == 1 else 'away',
+            'home_win_prob': home_win_prob,
+            'away_win_prob': away_win_prob,
+            'over_under': 'over' if under_over == 1 else 'under',
+            'over_under_line': todays_games_uo[count],
+            'over_under_prob': un_confidence[0][1] * 100 if under_over == 1 else un_confidence[0][0] * 100,
+            'home_odds': home_team_odds[count],
+            'away_odds': away_team_odds[count],
+            'ev_home': ev_home,
+            'ev_away': ev_away,
+            'kelly_home': kelly_home,
+            'kelly_away': kelly_away,
+            'home_meets_criteria': home_meets_criteria,
+            'away_meets_criteria': away_meets_criteria
+        })
+        
+        # 予測結果の表示（ANSI色付き）
         if winner == 1:
-            winner_confidence = round(winner_confidence[0][1] * 100, 1)
+            # ホームチーム勝利予測
+            winner_confidence_val = round(winner_confidence[0][1] * 100, 1)
+            
+            # ホームチームが条件を満たす場合は背景色を変更
+            home_format = Back.GREEN + Fore.WHITE if home_meets_criteria else Fore.GREEN
+            
             if under_over == 0:
-                un_confidence = round(ou_predictions_array[count][0][0] * 100, 1)
+                # アンダー予測
+                un_confidence_val = round(ou_predictions_array[count][0][0] * 100, 1)
                 print(
-                    Fore.GREEN + home_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ' vs ' + Fore.RED + away_team + Style.RESET_ALL + ': ' +
-                    Fore.MAGENTA + 'UNDER ' + Style.RESET_ALL + str(
-                        todays_games_uo[count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
+                    home_format + home_team + Style.RESET_ALL + 
+                    Fore.CYAN + f" ({winner_confidence_val}%)" + Style.RESET_ALL + 
+                    ' vs ' + Fore.RED + away_team + Style.RESET_ALL + ': ' +
+                    Fore.MAGENTA + 'UNDER ' + Style.RESET_ALL + 
+                    str(todays_games_uo[count]) + Style.RESET_ALL + 
+                    Fore.CYAN + f" ({un_confidence_val}%)" + Style.RESET_ALL
+                )
             else:
-                un_confidence = round(ou_predictions_array[count][0][1] * 100, 1)
+                # オーバー予測
+                un_confidence_val = round(ou_predictions_array[count][0][1] * 100, 1)
                 print(
-                    Fore.GREEN + home_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ' vs ' + Fore.RED + away_team + Style.RESET_ALL + ': ' +
-                    Fore.BLUE + 'OVER ' + Style.RESET_ALL + str(
-                        todays_games_uo[count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
+                    home_format + home_team + Style.RESET_ALL + 
+                    Fore.CYAN + f" ({winner_confidence_val}%)" + Style.RESET_ALL + 
+                    ' vs ' + Fore.RED + away_team + Style.RESET_ALL + ': ' +
+                    Fore.BLUE + 'OVER ' + Style.RESET_ALL + 
+                    str(todays_games_uo[count]) + Style.RESET_ALL + 
+                    Fore.CYAN + f" ({un_confidence_val}%)" + Style.RESET_ALL
+                )
         else:
-            winner_confidence = round(winner_confidence[0][0] * 100, 1)
+            # アウェイチーム勝利予測
+            winner_confidence_val = round(winner_confidence[0][0] * 100, 1)
+            
+            # アウェイチームが条件を満たす場合は背景色を変更
+            away_format = Back.GREEN + Fore.WHITE if away_meets_criteria else Fore.GREEN
+            
             if under_over == 0:
-                un_confidence = round(ou_predictions_array[count][0][0] * 100, 1)
+                # アンダー予測
+                un_confidence_val = round(ou_predictions_array[count][0][0] * 100, 1)
                 print(
-                    Fore.RED + home_team + Style.RESET_ALL + ' vs ' + Fore.GREEN + away_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ': ' +
-                    Fore.MAGENTA + 'UNDER ' + Style.RESET_ALL + str(
-                        todays_games_uo[count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
+                    Fore.RED + home_team + Style.RESET_ALL + 
+                    ' vs ' + away_format + away_team + Style.RESET_ALL + 
+                    Fore.CYAN + f" ({winner_confidence_val}%)" + Style.RESET_ALL + ': ' +
+                    Fore.MAGENTA + 'UNDER ' + Style.RESET_ALL + 
+                    str(todays_games_uo[count]) + Style.RESET_ALL + 
+                    Fore.CYAN + f" ({un_confidence_val}%)" + Style.RESET_ALL
+                )
             else:
-                un_confidence = round(ou_predictions_array[count][0][1] * 100, 1)
+                # オーバー予測
+                un_confidence_val = round(ou_predictions_array[count][0][1] * 100, 1)
                 print(
-                    Fore.RED + home_team + Style.RESET_ALL + ' vs ' + Fore.GREEN + away_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ': ' +
-                    Fore.BLUE + 'OVER ' + Style.RESET_ALL + str(
-                        todays_games_uo[count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
+                    Fore.RED + home_team + Style.RESET_ALL + 
+                    ' vs ' + away_format + away_team + Style.RESET_ALL + 
+                    Fore.CYAN + f" ({winner_confidence_val}%)" + Style.RESET_ALL + ': ' +
+                    Fore.BLUE + 'OVER ' + Style.RESET_ALL + 
+                    str(todays_games_uo[count]) + Style.RESET_ALL + 
+                    Fore.CYAN + f" ({un_confidence_val}%)" + Style.RESET_ALL
+                )
         count += 1
 
+    # 期待値とケリー基準の表示
     if kelly_criterion:
         print("------------Expected Value & Kelly Criterion-----------")
     else:
         print("---------------------Expected Value--------------------")
+    
     count = 0
     for game in games:
         home_team = game[0]
         away_team = game[1]
-        ev_home = ev_away = 0
-        if home_team_odds[count] and away_team_odds[count]:
-            ev_home = float(Expected_Value.expected_value(ml_predictions_array[count][0][1], int(home_team_odds[count])))
-            ev_away = float(Expected_Value.expected_value(ml_predictions_array[count][0][0], int(away_team_odds[count])))
-        expected_value_colors = {'home_color': Fore.GREEN if ev_home > 0 else Fore.RED,
-                        'away_color': Fore.GREEN if ev_away > 0 else Fore.RED}
-        bankroll_descriptor = ' Fraction of Bankroll: '
-        bankroll_fraction_home = bankroll_descriptor + str(kc.calculate_kelly_criterion(home_team_odds[count], ml_predictions_array[count][0][1])) + '%'
-        bankroll_fraction_away = bankroll_descriptor + str(kc.calculate_kelly_criterion(away_team_odds[count], ml_predictions_array[count][0][0])) + '%'
-
-        print(home_team + ' EV: ' + expected_value_colors['home_color'] + str(ev_home) + Style.RESET_ALL + (bankroll_fraction_home if kelly_criterion else ''))
-        print(away_team + ' EV: ' + expected_value_colors['away_color'] + str(ev_away) + Style.RESET_ALL + (bankroll_fraction_away if kelly_criterion else ''))
-        # 期待値(EV):
-        # 予測確率とオッズから計算される理論的な収益
-        # 正の値はプラスの期待値（長期的に利益が出る）を示す
-        # 例：Dallas Mavericks EV: 84.40 → $100賭けた場合の期待値は$84.40
         
-        # ケリー基準(Kelly Criterion):
-        # 最適な賭け金額の割合を計算
-        # Fraction of Bankroll: 総資金のうち何%を賭けるべきかを示す
-        # 例：Dallas Mavericks ... Fraction of Bankroll: 22.51% → 資金の22.51%を賭けるのが最適
-        # Dallas Mavericks (EV: 84.40) - 最も高いEV、資金の22.51%を賭けることが推奨
-        # San Antonio Spurs (EV: 109.93) - 非常に高いEV、資金の35.46%を賭けることが推奨
-        # Washington Wizards (EV: 34.46) - 良好なEV、資金の22.23%を賭けることが推奨
-        # Miami Heat (EV: 32.06) - 良好なEV、資金の20.68%を賭けることが推奨
-        # New Orleans Pelicans (EV: 30.73) - 良好なEV、資金の5.35%を賭けることが推奨
-        # Indiana Pacers EV: -29.579999923706055 Fraction of Bankroll: 0%
-        # Dallas Mavericks EV: 74.9000015258789 Fraction of Bankroll: 19.97%
-        # Orlando Magic EV: -0.23000000417232513 Fraction of Bankroll: 0%
-        # Houston Rockets EV: -13.670000076293945 Fraction of Bankroll: 0%
-        # Miami Heat EV: 26.959999084472656 Fraction of Bankroll: 17.39%
-        # Detroit Pistons EV: -28.809999465942383 Fraction of Bankroll: 0%
-        # Minnesota Timberwolves EV: -14.069999694824219 Fraction of Bankroll: 0%
-        # New Orleans Pelicans EV: 17.229999542236328 Fraction of Bankroll: 3.0%
-        # San Antonio Spurs EV: 101.7300033569336 Fraction of Bankroll: 32.82%
-        # New York Knicks EV: -41.20000076293945 Fraction of Bankroll: 0%
-        # Oklahoma City Thunder EV: -10.619999885559082 Fraction of Bankroll: 0%
-        # Philadelphia 76ers EV: -3.490000009536743 Fraction of Bankroll: 0%
-        # Utah Jazz EV: -30.260000228881836 Fraction of Bankroll: 0%
-        # Washington Wizards EV: 29.360000610351562 Fraction of Bankroll: 18.94%
-        # Los Angeles Lakers EV: 10.050000190734863 Fraction of Bankroll: 9.14%
-        # Denver Nuggets EV: -22.8700008392334 Fraction of Bankroll: 0%
-        # Sacramento Kings EV: 9.010000228881836 Fraction of Bankroll: 5.15%
-        # Cleveland Cavaliers EV: -16.799999237060547 Fraction of Bankroll: 0%
-        # Phoenix Suns EV: -9.170000076293945 Fraction of Bankroll: 0%
-        # Chicago Bulls EV: -7.409999847412109 Fraction of Bankroll: 0%
-        # Portland Trail Blazers EV: -8.020000457763672 Fraction of Bankroll: 0%
-        # Memphis Grizzlies EV: -8.4399995803833 Fraction of Bankroll: 0%
-        count += 1
+        pred = predictions_list[count]
+        ev_home = pred['ev_home']
+        ev_away = pred['ev_away']
+        kelly_home = pred['kelly_home']
+        kelly_away = pred['kelly_away']
+        
+        # 表示色の決定
+        expected_value_colors = {
+            'home_color': Fore.GREEN if ev_home > 0 else Fore.RED,
+            'away_color': Fore.GREEN if ev_away > 0 else Fore.RED
+        }
+        
+        # 条件を満たすチームは背景色を変更
+        home_format = Back.GREEN + Fore.WHITE if pred['home_meets_criteria'] else expected_value_colors['home_color']
+        away_format = Back.GREEN + Fore.WHITE if pred['away_meets_criteria'] else expected_value_colors['away_color']
+        
+        # 結果の表示
+        bankroll_descriptor = ' Fraction of Bankroll: '
+        bankroll_fraction_home = bankroll_descriptor + str(kelly_home) + '%'
+        bankroll_fraction_away = bankroll_descriptor + str(kelly_away) + '%'
 
+        print(home_team + ' EV: ' + home_format + str(ev_home) + Style.RESET_ALL + (bankroll_fraction_home if kelly_criterion else ''))
+        print(away_team + ' EV: ' + away_format + str(ev_away) + Style.RESET_ALL + (bankroll_fraction_away if kelly_criterion else ''))
+        count += 1
+    
+    # 条件を満たすベットのみを表示
+    print("\n------- 推奨ベット（勝率50%以上かつプラスのEV）-------")
+    recommended_bets = []
+    for pred in predictions_list:
+        if pred['home_meets_criteria']:
+            recommended_bets.append({
+                'team': pred['home_team'],
+                'opponent': pred['away_team'],
+                'win_prob': pred['home_win_prob'],
+                'ev': pred['ev_home'],
+                'kelly': pred['kelly_home'],
+                'odds': pred['home_odds']
+            })
+        if pred['away_meets_criteria']:
+            recommended_bets.append({
+                'team': pred['away_team'],
+                'opponent': pred['home_team'],
+                'win_prob': pred['away_win_prob'],
+                'ev': pred['ev_away'],
+                'kelly': pred['kelly_away'],
+                'odds': pred['away_odds']
+            })
+    
+    # EVの高い順にソート
+    recommended_bets.sort(key=lambda x: x['ev'], reverse=True)
+    
+    if recommended_bets:
+        for bet in recommended_bets:
+            print(f"{bet['team']} vs {bet['opponent']}: " + 
+                  Fore.CYAN + f"勝率 {bet['win_prob']:.1f}%" + Style.RESET_ALL + ", " + 
+                  Fore.GREEN + f"EV {bet['ev']:.2f}" + Style.RESET_ALL + ", " + 
+                  f"ケリー {bet['kelly']:.2f}%, オッズ {bet['odds']}")
+    else:
+        print("条件を満たすベットはありません")
+    
+    print("------------------------------------------------------")
+    
+    # CSV出力
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"predictions_{timestamp}.csv"
+    
+    # 出力ディレクトリがなければ作成
+    output_dir = "predictions"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    filepath = os.path.join(output_dir, filename)
+    
+    with open(filepath, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        
+        # ヘッダー行を書き込み
+        writer.writerow([
+            'Date', 'Home Team', 'Away Team', 
+            'Predicted Winner', 'Win Confidence', 
+            'Total Line', 'O/U Prediction', 'O/U Confidence',
+            'Home Odds', 'Away Odds', 
+            'Home EV', 'Away EV',
+            'Home Kelly %', 'Away Kelly %',
+            'Recommended Bet'
+        ])
+        
+        # 予測データの書き込み
+        for i, pred in enumerate(predictions_list):
+            # 推奨ベットを判断
+            home_recommended = pred['home_meets_criteria']
+            away_recommended = pred['away_meets_criteria']
+            recommended = ""
+            
+            if home_recommended and away_recommended:
+                if pred['ev_home'] > pred['ev_away']:
+                    recommended = f"{pred['home_team']} (EV: {pred['ev_home']:.2f})"
+                else:
+                    recommended = f"{pred['away_team']} (EV: {pred['ev_away']:.2f})"
+            elif home_recommended:
+                recommended = f"{pred['home_team']} (EV: {pred['ev_home']:.2f})"
+            elif away_recommended:
+                recommended = f"{pred['away_team']} (EV: {pred['ev_away']:.2f})"
+            
+            # 試合の日付（デフォルトは今日）
+            game_date = datetime.now().strftime("%Y-%m-%d")
+            
+            # 行データの書き込み
+            writer.writerow([
+                game_date, 
+                pred['home_team'], 
+                pred['away_team'],
+                pred['home_team'] if pred['winner'] == 'home' else pred['away_team'], 
+                f"{pred['home_win_prob']:.1f}%" if pred['winner'] == 'home' else f"{pred['away_win_prob']:.1f}%",
+                pred['over_under_line'],
+                pred['over_under'].upper(), 
+                f"{pred['over_under_prob']:.1f}%",
+                pred['home_odds'], 
+                pred['away_odds'],
+                f"{pred['ev_home']:.2f}", 
+                f"{pred['ev_away']:.2f}",
+                f"{pred['kelly_home']:.2f}%", 
+                f"{pred['kelly_away']:.2f}%",
+                recommended
+            ])
+    
+    print(f"CSV出力が完了しました: {filepath}")
     deinit()

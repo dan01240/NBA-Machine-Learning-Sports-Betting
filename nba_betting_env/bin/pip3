@@ -1,4 +1,4 @@
-#!/Users/daiki/ClassWork/NBA-Machine-Learning-Sports-Betting/nba_betting_env/bin/python
+#!/Users/daiki/ClassWork/NBA-Machine-Learning-Sports-Betting/nba_betting_env/bin/python3.13
 # -*- coding: utf-8 -*-
 import re
 import sys

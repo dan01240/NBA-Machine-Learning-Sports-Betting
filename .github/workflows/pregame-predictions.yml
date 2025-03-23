@@ -1,0 +1,55 @@
+name: NBA Betting Pregame Predictions
+
+on:
+  # NBA試合前に自動実行（バンクーバー/PDT夏時間に合わせて）
+  schedule:
+    # 平日試合用
+    # バンクーバー時間 午後3:30 (UTC 22:30)
+    - cron: '30 22 * * 1-5'
+    
+    # バンクーバー時間 午後4:30 (UTC 23:30)
+    - cron: '30 23 * * 1-5'
+    
+    # バンクーバー時間 午後5:30 (UTC 00:30 翌日)
+    - cron: '30 0 * * 2-6'
+    
+    # 週末試合用
+    # バンクーバー時間 午前11:30 (UTC 18:30)
+    - cron: '30 18 * * 0,6'
+    
+    # バンクーバー時間 午後2:30 (UTC 21:30)
+    - cron: '30 21 * * 0,6'
+    
+    # バンクーバー時間 午後3:30 (UTC 22:30)
+    - cron: '30 22 * * 0,6'
+    
+    # バンクーバー時間 午後5:30 (UTC 00:30 翌日)
+    - cron: '30 0 * * 1,7'
+  
+  # 手動トリガーも追加
+  workflow_dispatch:
+
+jobs:
+  run-predictions:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      
+      - name: Run betting model and send Slack notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          # 実行結果をSlackに送信
+          python send_notification.py --run-model

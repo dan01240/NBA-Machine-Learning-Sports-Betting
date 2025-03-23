@@ -11,7 +11,7 @@ def payout(odds):
     else:
         return (100 / (-1 * odds)) * 100
 
-# src/Utils/Expected_Value.py
+# # src/Utils/Expected_Value.py
 def expected_value(Pwin, odds):
     """
     期待値を計算する関数
@@ -29,6 +29,28 @@ def expected_value(Pwin, odds):
     Ploss = 1 - adjusted_Pwin
     Mwin = payout(odds)
     return round((adjusted_Pwin * Mwin) - (Ploss * 100), 2)
+
+# def expected_value(Pwin, odds):
+#     """
+#     モデルの平均キャリブレーション誤差を考慮した期待値計算
+#     """
+#     # 予測範囲に応じた平均キャリブレーション誤差の適用
+#     if Pwin > 0.7:
+#         # 高確率予測には大きめの誤差
+#         cal_error = 0.038  # 3.8%
+#     elif Pwin > 0.6:
+#         # 中程度の確率には標準誤差
+#         cal_error = 0.035  # 3.5%
+#     else:
+#         # 低確率予測には小さめの誤差
+#         cal_error = 0.030  # 3.0%
+    
+#     # キャリブレーション誤差を引いて調整
+#     adjusted_Pwin = max(0.01, min(0.99, Pwin - cal_error))
+    
+#     Ploss = 1 - adjusted_Pwin
+#     Mwin = payout(odds)
+#     return round((adjusted_Pwin * Mwin) - (Ploss * 100), 2)
 
 
 def payout(odds):

@@ -11,6 +11,7 @@ on:
 jobs:
   run-predictions:
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # 30分でタイムアウト
     
     steps:
       - name: Checkout code
@@ -21,14 +22,52 @@ jobs:
         with:
           python-version: '3.10'
       
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # 必要なパッケージを明示的にインストール
+          pip install requests
       
-      - name: Run betting model and send Slack notification
+      - name: Check environment
+        run: |
+          echo "Python version:"
+          python --version
+          echo "Current directory:"
+          pwd
+          echo "Directory contents:"
+          ls -la
+          echo "Environment variables (safe ones only):"
+          env | grep -v -E 'SECRET|TOKEN|PASSWORD|KEY'
+          echo "SLACK_WEBHOOK_URL is set:" 
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then echo "Yes"; else echo "No"; fi
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      
+      - name: Run betting model only
+        id: model
+        continue-on-error: true
+        run: |
+          echo "Running betting model..."
+          python main.py -xgb -odds=bet365 -kc > betting_output.txt || echo "Model exited with error"
+          echo "Betting model finished. Output size: $(wc -c < betting_output.txt) bytes"
+      
+      - name: Send Slack notification
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          # 実行結果をSlackに送信
-          python send_notification.py --run-model
+          echo "Sending notification..."
+          if [ -s betting_output.txt ]; then
+            python send_notification.py betting_output.txt
+          else
+            echo "Warning: Empty output file. Running directly..."
+            python send_notification.py --run-model
+          fi

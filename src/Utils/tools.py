@@ -27,14 +27,27 @@ data_headers = {
 }
 
 
-def get_json_data(url):
-    raw_data = requests.get(url, headers=data_headers)
-    try:
-        json = raw_data.json()
-    except Exception as e:
-        print(e)
-        return {}
-    return json.get('resultSets')
+def get_json_data(url, max_retries=3, backoff_factor=1.5):
+    retries = 0
+    last_exception = None
+    
+    while retries < max_retries:
+        try:
+            print(f"Attempting request to {url} (Attempt {retries + 1}/{max_retries})")
+            raw_data = requests.get(url, headers=data_headers, timeout=30)
+            raw_data.raise_for_status()  # Raise exception for 4XX/5XX responses
+            return raw_data.json().get('resultSets')
+        except Exception as e:
+            print(f"Request failed: {str(e)}")
+            last_exception = e
+            wait_time = backoff_factor ** retries
+            print(f"Waiting {wait_time} seconds before retry...")
+            time.sleep(wait_time)
+            retries += 1
+    
+    # If we get here, all retries failed
+    print(f"All {max_retries} attempts failed. Last error: {str(last_exception)}")
+    return {}
 
 
 def get_todays_games_json(url):

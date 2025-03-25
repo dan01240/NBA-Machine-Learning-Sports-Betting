@@ -59,6 +59,11 @@ jobs:
           echo "Running betting model..."
           python main.py -xgb -odds=bet365 -kc > betting_output.txt || echo "Model exited with error"
           echo "Betting model finished. Output size: $(wc -c < betting_output.txt) bytes"
+          
+          # ログファイルの内容を表示（デバッグ用）
+          echo "=== Betting output log (first 50 lines) ==="
+          head -n 50 betting_output.txt
+          echo "=== End of log preview ==="
       
       - name: Send Slack notification
         env:

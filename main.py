@@ -96,24 +96,10 @@ def createTodaysGames(games, df, odds):
         # チームが辞書内にあるかチェック
         if home_team not in team_index_current:
             print(f"警告: ホームチーム '{home_team}' はteam_index_currentに見つかりません")
-            # 近い一致を探す
-            possible_matches = []
-            for team in team_index_current:
-                if any(word in team.lower() for word in home_team.lower().split()):
-                    possible_matches.append(team)
-            if possible_matches:
-                print(f"  - 可能性のある一致: {possible_matches}")
             continue
             
         if away_team not in team_index_current:
             print(f"警告: アウェイチーム '{away_team}' はteam_index_currentに見つかりません")
-            # 近い一致を探す
-            possible_matches = []
-            for team in team_index_current:
-                if any(word in team.lower() for word in away_team.lower().split()):
-                    possible_matches.append(team)
-            if possible_matches:
-                print(f"  - 可能性のある一致: {possible_matches}")
             continue
             
         # インデックスがDataFrameに対して有効かチェック
@@ -178,42 +164,21 @@ def createTodaysGames(games, df, odds):
             away_team_odds.append(input(away_team + ' odds: '))
 
         try:
-            # 日数休暇を計算
-            schedule_df = pd.read_csv('Data/nba-2024-UTC.csv', parse_dates=['Date'], date_format='%d/%m/%Y %H:%M')
+            # CSVファイルの読み込みをスキップし、固定値を使用する
+            print(f"{away_team} 休日数: 1 @ {home_team} 休日数: 1")
+            home_days_off = timedelta(days=1)
+            away_days_off = timedelta(days=1)
             
-            # ホームとアウェイのチームの試合を取得
-            home_games = schedule_df[(schedule_df['Home Team'] == home_team) | (schedule_df['Away Team'] == home_team)]
-            away_games = schedule_df[(schedule_df['Home Team'] == away_team) | (schedule_df['Away Team'] == away_team)]
-            
-            # 今日以前の最新の試合を取得
-            previous_home_games = home_games.loc[schedule_df['Date'] <= datetime.today()].sort_values('Date', ascending=False).head(1)['Date']
-            previous_away_games = away_games.loc[schedule_df['Date'] <= datetime.today()].sort_values('Date', ascending=False).head(1)['Date']
-            
-            # 休日数を計算
-            if len(previous_home_games) > 0:
-                last_home_date = previous_home_games.iloc[0]
-                home_days_off = timedelta(days=1) + datetime.today() - last_home_date
-            else:
-                home_days_off = timedelta(days=7)
-                
-            if len(previous_away_games) > 0:
-                last_away_date = previous_away_games.iloc[0]
-                away_days_off = timedelta(days=1) + datetime.today() - last_away_date
-            else:
-                away_days_off = timedelta(days=7)
-                
-            print(f"{away_team} 休日数: {away_days_off.days} @ {home_team} 休日数: {home_days_off.days}")
-
-            home_team_days_rest.append(home_days_off.days)
-            away_team_days_rest.append(away_days_off.days)
+            home_team_days_rest.append(1)
+            away_team_days_rest.append(1)
             
             # チームデータの取得
             try:
                 home_team_series = df.iloc[team_index_current.get(home_team)]
                 away_team_series = df.iloc[team_index_current.get(away_team)]
                 stats = pd.concat([home_team_series, away_team_series])
-                stats['Days-Rest-Home'] = home_days_off.days
-                stats['Days-Rest-Away'] = away_days_off.days
+                stats['Days-Rest-Home'] = 1  # 固定値を使用
+                stats['Days-Rest-Away'] = 1  # 固定値を使用
                 match_data.append(stats)
             except Exception as e:
                 print(f"チームデータの取得中にエラー: {str(e)}")
